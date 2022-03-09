@@ -7,16 +7,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="./libs/d3.js"></script>
     <script src="https://d3js.org/topojson.v1.min.js"></script>
-    <title>MA Map</title>
+    <title>Map of Massachusetts</title>
     <style>
+        h1,h3 {text-align: center;}
+        
+
         #tooltip {
             position: absolute;
             opacity: 0;
             top: 0;
             left: 0;
             width: auto;
-            padding: 10px;
-            background: white;
+            padding: 12px;
+            background: rgba(51, 50, 50, 0.829);
             font-family: sans-serif;
             font-size: medium;
             border-radius: 2px;
@@ -24,8 +27,8 @@
         }
         
         path {
-            stroke-width: .5px;
-            stroke: black
+            stroke-width: .75px;
+            stroke: white;
         }
         
         path:hover {
@@ -33,11 +36,33 @@
             stroke: black;
             stroke-width: 4px;
         }
+        #details {
+                position: absolute;
+                margin: 15px;
+                opacity: 0;
+                top: 0;
+                right: 0;
+                width: 200px;
+                height: auto;
+                padding: 10px;
+                background: rgba(63, 63, 63, 0.767);
+                color: azure;
+            }
+        
+        svg {
+        margin: auto;
+        text-align: center;
+        }
+
+
     </style>
 </head>
 
 <body>
+    <h1>Week 6 Assignment - MA Population</h1>
+    <h3>Owen Richardson</h3>
     <div id="tooltip"></div>
+    <div id="details"></div>
     <script>
         /*-------------------------------------------------------*/
         /*------------------- Window setting --------------------*/
@@ -56,8 +81,11 @@
 
         // a topojson file containing population of each town in different years
         const MA_counties = "./data/towns.topojson"
-            // gini index per county
-        const gini_index = "./data/gini_index.csv"
+
+        // gini index per county
+        const gini_index = "./data/gini_index.csv";
+
+        let allgeojson;
 
 
         // open both files
@@ -76,6 +104,9 @@
             // if topojson file is imported we need to 
             // convert topology data to geojson 
             const geojson = topojson.feature(topo_data, topo_data.objects.ma);
+            allgeojson = geojson
+
+            var list_of_all_FIPS = [... new Set(geojson['features'].map(d=>d['properties']['FIPS_STCO']))]
 
             /*-------------------------------------------------------*/
             /*----------------------Projections----------------------*/
@@ -105,21 +136,23 @@
             ////https://observablehq.com/@d3/working-with-color
             var colorInterpolator = d3.interpolateRgbBasis(["blue", "steelblue", "green", "purple", "red"])
                 // if the data is scaled using log scale
+
             let logScale = d3.scaleLog()
                 .domain(d3.extent(geojson.features, (d) => {
-                    return d['properties']['POP2010']
+                    return d['properties']['POP1980']
                 }))
 
             // if the data is scaled using linear scale
             let linearScale = d3.scaleLinear()
                 .domain(d3.extent(geojson.features, (d) => {
-                    return d['properties']['POP2010']
+                    return d['properties']['POP1980']
                 }))
 
             /*-------------------------------------------------------*/
             /*---------------------- Tooltip ------------------------*/
             /*-------------------------------------------------------*/
             const tooltip = d3.select("#tooltip");
+            const details = d3.select("#details");
 
             /*--------------------------------------------------------*/
             /*----------------- channelling marks --------------------*/
@@ -135,21 +168,33 @@
                 .enter()
                 .append("path")
                 .attr("d", d => geoPath_generator(d))
-                //.attr("fill", d => colorInterpolator(logScale(d['properties']['POP2010'])))
-                .attr("fill", d => colorInterpolator(linearScale(d['properties']['POP2010'])))
+                .attr("fill", d => d3.schemeTableau10[list_of_all_FIPS.indexOf(d['properties']['FIPS_STCO'])%10])
                 .on("mouseenter", (m, d) => {
                     tooltip.transition()
                         .duration(200)
                         .style("opacity", .9)
                     tooltip.html(d['properties']['TOWN'])
                         .style("left", m.clientX + "px")
-                        .style("top", m.clientY + "px");
+                        .style("top", m.clientY + "px")       
+                    details.html("<div>Town: " + 
+                            d['properties']['TOWN'] + "</div>" +
+                            "<div>1980 Population: " + 
+                            d['properties']['POP1980'] + "</div>"  +
+                            "<div>2010 Population: " + 
+                            d['properties']['POP2010'] + "</div>" +
+                            "<div>Population Change: " + 
+                            Number(Number(d['properties']['POP2010']) -  
+                            Number(d['properties']['POP1980']))  + "</div>");
                 })
                 .on("mousemove", (m, d) => {
                     tooltip.style("opacity", .9)
+                    details.style("opacity", 0.9)
                 })
                 .on("mouseout", (m, d) => {
                     tooltip.transition()
+                        .duration(200)
+                        .style("opacity", 0)
+                    details.transition()
                         .duration(200)
                         .style("opacity", 0)
                 })
